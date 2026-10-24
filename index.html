@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.github.com; manifest-src 'self'; worker-src 'self'">
 <meta name="referrer" content="no-referrer">
 <title>HRV Live</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -20,6 +20,7 @@
   <nav>
     <button class="tab active" data-view="live">Live</button>
     <button class="tab" data-view="sessions">Sessions</button>
+    <button class="tab" data-view="settings">Settings</button>
     <button class="tab" data-view="help">Help</button>
   </nav>
 </header>
@@ -69,6 +70,7 @@
       <div>
         <div class="label">Session</div>
         <div id="timer" class="timer">00:00</div>
+        <div id="feed-status" class="feed-status off">Feed off</div>
       </div>
       <div class="beats"><span id="beats">0</span> beats · <span id="reconnects">0</span> reconnects</div>
     </div>
@@ -87,6 +89,25 @@
     <ul id="session-list" class="session-list"></ul>
   </section>
 
+  <section id="view-settings" class="view hidden">
+    <h2>Vita feed</h2>
+    <p class="hint">While a session is recording, the app sends one reading every 2 minutes (heart rate, RMSSD, SDNN, score, zone, beat counts) to a <b>private</b> GitHub repository, plus a summary when you stop. Raw beat data never leaves the phone. With no token the app makes no network calls at all.</p>
+    <div class="set-card">
+      <label class="set-row toggle"><span>Send readings to Vita</span><input type="checkbox" id="set-feed" role="switch"></label>
+      <label class="set-field"><span class="label">GitHub token</span>
+        <input type="password" id="set-token" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github_pat_…"></label>
+      <label class="set-field"><span class="label">Private repository</span>
+        <input type="text" id="set-repo" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      <div class="set-buttons">
+        <button id="btn-test" class="btn small">Test connection</button>
+        <button id="btn-clear-token" class="btn small ghost">Remove token</button>
+      </div>
+      <p id="set-result" class="set-result" aria-live="polite"></p>
+    </div>
+    <p class="hint">The token is stored only on this phone (in this browser) and is never sent anywhere except GitHub. Make it a fine-grained token limited to the hrv-sessions repository with Contents: Read and write, expiring in 90 days. You can revoke it on GitHub at any time.</p>
+    <p class="hint">Keep Bluefy open with the screen on while recording: iOS pauses web pages in the background. Readings that can't be sent (no signal) are kept and sent in order when the connection is back.</p>
+  </section>
+
   <section id="view-help" class="view hidden">
     <h2>How to use</h2>
     <ol class="help">
@@ -103,7 +124,7 @@
       <li>Walking or moving lowers HRV a lot. For a readiness reading, sit or stand still for 2–3 min.</li>
       <li>Beats outside 300–2000 ms or &gt;20 % off their neighbours are treated as artefacts (red dots) and left out.</li>
     </ul>
-    <p class="hint">No accounts, no analytics, no network calls. All data stays on this phone until you export it.</p>
+    <p class="hint">No accounts, no analytics. All data stays on this phone until you export it, unless you turn on the Vita feed in Settings (then 2-minute readings and session summaries go to your private GitHub repo only).</p>
     <p class="hint" id="version"></p>
   </section>
 </main>
