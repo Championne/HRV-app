@@ -1,0 +1,7 @@
+{
+  "name": "hrv-phone",
+  "private": true,
+  "type": "module",
+  "description": "Static PWA for live HRV from a Polar H10 in the Bluefy browser. No build step; package.json only exists so `node --test` treats js/*.js as ES modules.",
+  "scripts": { "test": "node --test tests/" }
+}
