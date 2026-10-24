@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'">
+<meta name="referrer" content="no-referrer">
+<title>HRV Live</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="top">
+  <h1>HRV Live</h1>
+  <nav>
+    <button class="tab active" data-view="live">Live</button>
+    <button class="tab" data-view="sessions">Sessions</button>
+    <button class="tab" data-view="help">Help</button>
+  </nav>
+</header>
+
+<div id="banner" class="banner hidden"></div>
+
+<main>
+  <section id="view-live" class="view">
+    <div class="status-row">
+      <span id="conn-dot" class="dot off"></span>
+      <span id="conn-text">Not connected</span>
+      <span id="battery" class="pill hidden">🔋 –</span>
+      <span id="contact" class="pill hidden">contact</span>
+    </div>
+
+    <div class="hero">
+      <div class="metric big">
+        <div class="label">Heart rate</div>
+        <div class="value"><span id="hr">–</span><small>bpm</small></div>
+      </div>
+      <div class="metric big">
+        <div class="label">RMSSD <span class="sub">60 s</span></div>
+        <div class="value"><span id="rmssd">–</span><small>ms</small></div>
+      </div>
+    </div>
+
+    <div class="gauge-card">
+      <canvas id="gauge" width="600" height="330" aria-label="HRV readiness gauge"></canvas>
+      <div class="gauge-text">
+        <div id="score" class="score">–</div>
+        <div id="zone" class="zone">Collecting…</div>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <div class="metric"><div class="label">SDNN</div><div class="value sm"><span id="sdnn">–</span><small>ms</small></div></div>
+      <div class="metric"><div class="label">ln RMSSD</div><div class="value sm"><span id="lnrmssd">–</span></div></div>
+      <div class="metric"><div class="label">pNN50</div><div class="value sm"><span id="pnn50">–</span><small>%</small></div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="label">Beat intervals (RR, last 2 min) <span class="sub" id="artefacts"></span></div>
+      <canvas id="tacho" width="800" height="300" aria-label="RR tachogram"></canvas>
+    </div>
+
+    <div class="session-bar">
+      <div>
+        <div class="label">Session</div>
+        <div id="timer" class="timer">00:00</div>
+      </div>
+      <div class="beats"><span id="beats">0</span> beats · <span id="reconnects">0</span> reconnects</div>
+    </div>
+
+    <div class="buttons">
+      <button id="btn-connect" class="btn primary">Connect strap</button>
+      <button id="btn-session" class="btn rec" disabled>Start session</button>
+    </div>
+    <p class="hint" id="hint">Close Elite HRV (swipe it away) before connecting: the strap only talks to one app at a time. Wet the strap electrodes.</p>
+    <p class="hint" id="wake-hint">Keep the screen on while measuring. In Bluefy, also turn on its keep-awake setting if the screen still dims.</p>
+  </section>
+
+  <section id="view-sessions" class="view hidden">
+    <h2>Saved sessions</h2>
+    <p class="hint">Stored only on this phone (in this browser). Export to keep a copy: CSV = every beat, same columns as the laptop tool; JSON = summary.</p>
+    <ul id="session-list" class="session-list"></ul>
+  </section>
+
+  <section id="view-help" class="view hidden">
+    <h2>How to use</h2>
+    <ol class="help">
+      <li>Open this page in <b>Bluefy</b> (Safari on iPhone has no Bluetooth for web pages).</li>
+      <li>Put the strap on with wet electrodes. <b>Close Elite HRV</b> and the Polar apps if they are connected to it.</li>
+      <li>Tap <b>Connect strap</b>, pick your Polar H10 in the list.</li>
+      <li>Tap <b>Start session</b> to record. Live numbers update every 2 s. Stop to save.</li>
+      <li>Sessions → <b>CSV</b>/<b>JSON</b> to share or save a file (e.g. to Files or your own cloud).</li>
+    </ol>
+    <h2>What the numbers mean</h2>
+    <ul class="help">
+      <li><b>RMSSD</b>: beat-to-beat variation over the last 60 s; higher usually means more relaxed (parasympathetic).</li>
+      <li><b>Score</b>: ln(RMSSD) scaled to 0–100. Bands are generic; your own trend over weeks is more meaningful than one reading.</li>
+      <li>Walking or moving lowers HRV a lot. For a readiness reading, sit or stand still for 2–3 min.</li>
+      <li>Beats outside 300–2000 ms or &gt;20 % off their neighbours are treated as artefacts (red dots) and left out.</li>
+    </ul>
+    <p class="hint">No accounts, no analytics, no network calls. All data stays on this phone until you export it.</p>
+    <p class="hint" id="version"></p>
+  </section>
+</main>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
