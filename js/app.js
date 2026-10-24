@@ -2,13 +2,19 @@ import { parseHeartRate, filterRR, hrvStats, hrvScore, scoreZone, sessionCsv, se
 import { saveSession, listSessions, deleteSession, getSession, persist } from './store.js';
 import { SIM, SPEED, now, fakeBluetooth } from './sim.js';
 import { drawGauge, drawTacho } from './charts.js';
+import { Feed, FEED_INTERVAL_MS, buildReading, DEFAULT_REPO } from './feed.js';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const WINDOW_MS = 60000;       // rolling RMSSD window
 const TACHO_MS = 120000;       // tachogram span
 const UPDATE_MS = 2000;        // HRV refresh (real time)
 const AUTOSAVE_MS = 15000;
 const BACKOFF_MIN = 1000, BACKOFF_MAX = 30000, CONNECT_TIMEOUT = 20000;
+// Rolling feed interval (real time). ?feedInterval=<ms> is honoured in simulation mode only (tests).
+const FEED_MS = (() => {
+  const v = Number(new URLSearchParams(location.search).get('feedInterval'));
+  return SIM && v >= 500 ? v : FEED_INTERVAL_MS;
+})();
 
 const $ = (id) => document.getElementById(id);
 const bt = SIM ? fakeBluetooth : navigator.bluetooth;
@@ -19,7 +25,10 @@ const state = {
   live: [],            // [{t, rr}] beat-timed RR for last TACHO_MS
   lastHr: null, lastContact: null, lastPacket: 0,
   session: null, autosaveTimer: null, wakeLock: null,
+  feedTimer: null, feedSince: 0,
 };
+
+const feed = new Feed({ onStatus: renderFeedStatus });
 
 // ------------------------------------------------------------------ UI helpers
 function banner(msg, kind = '') {
@@ -183,6 +192,46 @@ function renderCounters() {
   $('reconnects').textContent = state.session ? state.session.reconnects : state.liveReconnects;
 }
 
+// ------------------------------------------------------------------ rolling feed (Vita)
+function makeReading(session, t) {
+  const windowRR = state.live.filter((p) => p.t >= t - WINDOW_MS && p.t <= t).map((p) => p.rr);
+  const r = buildReading({ t, session, since: state.feedSince, windowRR, contact: state.lastContact });
+  state.feedSince = t;
+  return r;
+}
+function feedTick() {
+  if (!state.session) return;
+  const t = now();
+  if (feed.active) feed.enqueueReading(makeReading(state.session, t), t);
+  else state.feedSince = t;
+  feed.flush();
+}
+function renderFeedStatus(st) {
+  const el = $('feed-status');
+  if (!el) return;
+  el.textContent = st.text; el.className = 'feed-status ' + st.kind;
+}
+function initSettings() {
+  const tok = $('set-token'), repo = $('set-repo'), on = $('set-feed'), out = $('set-result');
+  tok.value = feed.token; repo.value = feed.repo; repo.placeholder = DEFAULT_REPO; on.checked = feed.enabled;
+  const syncToggle = () => { on.disabled = !feed.token; if (!feed.token) on.checked = false; };
+  syncToggle();
+  tok.addEventListener('change', () => { feed.setToken(tok.value); syncToggle(); out.textContent = feed.token ? 'Token saved on this phone.' : 'Token removed.'; out.className = 'set-result'; });
+  repo.addEventListener('change', () => { feed.setRepo(repo.value); repo.value = feed.repo; });
+  on.addEventListener('change', () => feed.setEnabled(on.checked));
+  $('btn-test').onclick = async () => {
+    feed.setToken(tok.value); feed.setRepo(repo.value); syncToggle();
+    out.textContent = 'Testing…'; out.className = 'set-result';
+    const r = await feed.test();
+    out.textContent = r.msg; out.className = 'set-result ' + (r.ok ? 'ok' : r.warn ? 'warn' : 'err');
+  };
+  $('btn-clear-token').onclick = () => { tok.value = ''; feed.setToken(''); feed.setEnabled(false); syncToggle(); out.textContent = 'Token removed from this phone.'; out.className = 'set-result'; };
+  window.addEventListener('online', () => { feed.offline = false; feed.flush(); });
+  window.addEventListener('offline', () => { if (feed.active && feed.queue.length) { feed.offline = true; feed.status(); } });
+  feed.status();
+  if (feed.active && feed.queue.length) feed.flush();
+}
+
 // ------------------------------------------------------------------ sessions
 function uid() { return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); }
 
@@ -191,13 +240,22 @@ async function sessionClicked() {
     state.session = { id: uid(), start: now(), end: null, device: state.device ? state.device.name : '', beats: [], reconnects: 0, simulated: SIM };
     $('timer').classList.add('rec');
     state.autosaveTimer = setInterval(() => saveSession(state.session).catch(console.error), AUTOSAVE_MS);
+    state.feedSince = state.session.start;
+    state.feedTimer = setInterval(feedTick, FEED_MS);
     await saveSession(state.session);
     persist();
   } else {
     const s = state.session; state.session = null;
     clearInterval(state.autosaveTimer);
+    clearInterval(state.feedTimer); state.feedTimer = null;
     s.end = now(); s.summary = sessionSummary(s);
     await saveSession(s);
+    if (feed.active) {
+      // Last partial interval (if at least 10 s), then the full summary.
+      if (s.end - state.feedSince >= 10000) feed.enqueueReading(makeReading(s, s.end), s.end);
+      feed.enqueueSummary(s);
+      feed.flush();
+    }
     $('timer').classList.remove('rec');
     banner(`Session saved: ${mmss(s.end - s.start)}, RMSSD ${fmt(s.summary.rmssd_ms, 1)} ms, ${s.summary.clean_beats} clean beats.`);
     setTimeout(() => banner(''), 6000);
@@ -300,9 +358,10 @@ async function init() {
   setInterval(refreshHrv, UPDATE_MS);
   setInterval(tick, 1000);
   recoverOpenSessions().catch(console.error);
+  initSettings();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW', e));
 }
 init();
 
 // For headless tests only.
-window.__hrv = { state, localIso };
+window.__hrv = { state, localIso, feed, FEED_MS };

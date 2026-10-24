@@ -1,12 +1,13 @@
 // Offline cache for the app shell. Never caches or sends any health data.
-const VERSION = 'hrv-live-v1';
+const VERSION = 'hrv-live-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
-  './js/app.js', './js/hrv.js', './js/store.js', './js/sim.js', './js/charts.js',
+  './js/app.js', './js/hrv.js', './js/store.js', './js/sim.js', './js/charts.js', './js/feed.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
 ];
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' bypasses the HTTP cache so a new version never stores stale files.
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
